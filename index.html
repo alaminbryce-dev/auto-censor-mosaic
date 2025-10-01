@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PixieCensor — Bulk Mosaic (client‑side)</title>
+  <meta name="description" content="Bulk auto‑censor genitals in photos with a mosaic effect — runs fully in your browser.">
+  <style>
+    :root{
+      --bg:#0a0b10; --bg2:#0c0f17; --card:#121422; --ink:#f1f5f9; --muted:#9aa5b1;
+      --accent:#48c1ff; --accent2:#a78bfa; --accent3:#22d3ee; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(900px 600px at 0% -10%, rgba(72,193,255,.18), transparent 60%),radial-gradient(900px 600px at 110% 10%, rgba(167,139,250,.16), transparent 60%),linear-gradient(180deg,var(--bg),var(--bg2)); color:var(--ink);font:14px/1.6 Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif}
+    header{position:sticky;top:0;background:rgba(6,8,12,.55);backdrop-filter:blur(10px);border-bottom:1px solid #233;z-index:5}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px}
+    h1{margin:0;font-weight:900;letter-spacing:.2px;font-size:clamp(20px,3vw,28px)}
+    h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));-webkit-background-clip:text;background-clip:text;color:transparent}
+    p.sub{margin:4px 0 0;color:var(--muted)}
+    main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+    @media (max-width:960px){ main{grid-template-columns:1fr} }
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));border:1px solid #273044;border-radius:18px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+    .card h2{margin:.1rem 0 .6rem;font-size:15px;color:#dbe4f1;letter-spacing:.3px}
+    .drop{border:1.5px dashed #335; border-radius:16px; padding:16px; text-align:center; color:var(--muted)}
+    .drop.drag{border-color:var(--accent); color:#dff3ff; background:rgba(72,193,255,.08)}
+    .btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(180deg,var(--accent),var(--accent2));color:white;border:none;border-radius:12px;padding:10px 14px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(72,193,255,.28);transition:transform .08s ease}
+    .btn:active{transform:translateY(1px)}
+    .btn.secondary{background:#23283a; box-shadow:none}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+    .thumb{position:relative;background:#0b0e16;border:1px solid #263045;border-radius:12px;overflow:hidden}
+    .thumb canvas,.thumb img{display:block;width:100%;height:160px;object-fit:cover}
+    .tag{position:absolute;left:8px;top:8px;background:#111827d9;border:1px solid #2a3347;border-radius:999px;padding:3px 8px;font-size:11px;color:#cbd5e1}
+    .stat{position:absolute;right:8px;top:8px;background:#0b1220cc;border:1px solid #22304a;border-radius:8px;padding:3px 6px;font-size:11px}
+    .stat.ok{color:#86efac;border-color:#14532d}
+    .stat.err{color:#fecaca;border-color:#4c1d1d}
+    .bar{height:8px;background:#152033;border:1px solid #26334a;border-radius:999px;overflow:hidden}
+    .bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent3));}
+    .row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:8px 0}
+    .caps{font-size:11px;color:#a5b0be;text-transform:uppercase;letter-spacing:.08em}
+    .settings label{font-size:12px;color:#cdd6e4}
+    input[type="range"]{width:100%}
+    footer{padding:22px;color:#94a3b8;text-align:center}
+    .pill{display:inline-block;font-size:11px;border:1px solid #2c3140;border-radius:999px;padding:2px 8px;margin-left:6px;color:#a5adba}
+    .warn{display:none; position:fixed; left:50%; transform:translateX(-50%); top:12px; background:#261915; border:1px solid #7a2e21; color:#ffd7cf; padding:10px 14px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.4); z-index:50}
+  </style>
+</head>
+<body>
+  <div id="warn" class="warn"></div>
+  <header>
+    <div class="wrap">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+        <div>
+          <h1>PixieCensor <span>Bulk Mosaic</span></h1>
+          <p class="sub">Drop a folder of photos → we’ll auto‑censor genital regions client‑side. No uploads. <span aria-hidden>🪄</span></p>
+        </div>
+        <button class="btn" id="zipAll"><span>⬇️</span> Download ZIP</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card settings">
+      <h2>1) Input</h2>
+      <div id="drop" class="drop">
+        <div class="caps">Drag & drop images here</div>
+        <div style="margin-top:6px">or <label for="files" style="text-decoration:underline; cursor:pointer">browse</label></div>
+        <input id="files" type="file" accept="image/*" multiple style="display:none">
+      </div>
+
+      <h2 style="margin-top:14px">2) Mosaic Settings</h2>
+      <div class="row"><label>Block size (px)</label><input id="blockSize" type="range" min="4" max="64" step="2" value="24"></div>
+      <div class="row"><label>Coverage scale <span class="pill" id="covVal">160%</span></label><input id="coverage" type="range" min="90" max="240" step="5" value="160"></div>
+      <div class="row"><label>Confidence threshold <span class="pill" id="confVal">0.30</span></label><input id="confidence" type="range" min="0.1" max="0.8" step="0.05" value="0.30"></div>
+      <div class="row"><label>Also mosaic faces</label><input id="faceOn" type="checkbox"></div>
+      <div class="row"><label>Show boxes (debug)</label><input id="showBox" type="checkbox"></div>
+
+      <h2 style="margin-top:14px">3) Batch</h2>
+      <div class="row"><div class="caps">Overall progress</div><div class="caps" id="count">0/0</div></div>
+      <div class="bar" aria-label="overall progress"><i id="pbar"></i></div>
+      <div class="caps" style="margin-top:8px">Tip: never use this on any content involving minors. Everything runs locally in your browser.</div>
+    </section>
+
+    <section class="card">
+      <h2>Preview Grid</h2>
+      <div id="grid" class="grid"></div>
+    </section>
+  </main>
+
+  <footer>
+    Built with <b>Human</b> (pose) + canvas mosaic. Entirely client‑side. No uploads. | <a href="https://github.com/vladmandic/human" target="_blank" rel="noopener" style="color:#cde7ff">lib</a>
+  </footer>
+
+  <!-- Vendor libs -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <!-- Human: UMD build -->
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+
+  <script>
+  const els = {
+    drop: document.getElementById('drop'),
+    files: document.getElementById('files'),
+    grid: document.getElementById('grid'),
+    pbar: document.getElementById('pbar'),
+    count: document.getElementById('count'),
+    zipAll: document.getElementById('zipAll'),
+    block: document.getElementById('blockSize'),
+    cov: document.getElementById('coverage'),
+    covVal: document.getElementById('covVal'),
+    conf: document.getElementById('confidence'),
+    confVal: document.getElementById('confVal'),
+    faceOn: document.getElementById('faceOn'),
+    showBox: document.getElementById('showBox'),
+    warn: document.getElementById('warn'),
+  };
+
+  // Initialize Human
+  const human = new Human.Human({
+    backend: 'webgl',
+    modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models',
+    debug: false,
+    warmup: 'none',
+    // Keep it light for batch
+    face: { enabled: true, detector: { rotation: true } },
+    body: { enabled: true, modelPath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models/pose/movenet-lightning.json' },
+    hand: { enabled: false },
+    segmentation: { enabled: false },
+    gesture: { enabled: false },
+  });
+
+  let items = []; // {file, url, img, canvas, ctx, status}
+  let running = false;
+
+  function toast(msg){ const b=els.warn; b.textContent=msg; b.style.display='block'; clearTimeout(b._t); b._t=setTimeout(()=>b.style.display='none', 4000); }
+
+  function el(tag, attrs={}, children=[]) { const e=document.createElement(tag); for(const [k,v] of Object.entries(attrs)){ if(k==='class') e.className=v; else if(k==='text') e.textContent=v; else e.setAttribute(k,v) } children.forEach(c=>e.appendChild(c)); return e; }
+
+  function addThumb(file){
+    const url = URL.createObjectURL(file);
+    const wrap = el('div', {class:'thumb'});
+    const tag = el('div', {class:'tag', text:file.name});
+    const stat = el('div', {class:'stat', text:'queued'});
+    const bar = el('div', {class:'bar'}); const i = el('i'); bar.appendChild(i);
+    const canvas = el('canvas'); canvas.width=640; canvas.height=640;
+    wrap.appendChild(canvas); wrap.appendChild(tag); wrap.appendChild(stat); wrap.appendChild(bar);
+    els.grid.appendChild(wrap);
+    const it = {file, url, canvas, ctx:canvas.getContext('2d'), status:'queued', i, stat, wrap};
+    items.push(it);
+    const img = new Image(); img.onload=()=>{ drawImageContain(it.ctx, img, canvas.width, canvas.height); it.img = img; }; img.src = url;
+  }
+
+  function drawImageContain(ctx, img, w, h){
+    ctx.fillStyle = '#0b0e16'; ctx.fillRect(0,0,w,h);
+    const r = Math.min(w/img.naturalWidth, h/img.naturalHeight);
+    const dw = Math.round(img.naturalWidth*r), dh = Math.round(img.naturalHeight*r);
+    const dx = Math.floor((w-dw)/2), dy = Math.floor((h-dh)/2);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(img, dx, dy, dw, dh);
+    return {dx,dy,dw,dh};
+  }
+
+  function regionsFromPose(result, scale){
+    const boxes = [];
+    const thr = Number(els.conf.value);
+    const persons = result?.body?.poses || [];
+    for(const p of persons){
+      const kp = p.keypoints || [];
+      const lHip = kp.find(k=>k.part==='leftHip' || k.name==='left_hip');
+      const rHip = kp.find(k=>k.part==='rightHip' || k.name==='right_hip');
+      const lKnee = kp.find(k=>k.part==='leftKnee' || k.name==='left_knee');
+      const rKnee = kp.find(k=>k.part==='rightKnee' || k.name==='right_knee');
+      if(!(lHip&&rHip)) continue;
+      if(lHip.score<thr || rHip.score<thr) continue;
+      const hipsMid = {x:(lHip.x+rHip.x)/2, y:(lHip.y+rHip.y)/2};
+      const hipWidth = Math.hypot(lHip.x-rHip.x, lHip.y-rHip.y);
+      const kneeY = Math.min(lKnee?.y ?? hipsMid.y+hipWidth, rKnee?.y ?? hipsMid.y+hipWidth);
+      let h = clamp((kneeY - hipsMid.y) * 0.95, hipWidth*0.8, hipWidth*1.9);
+      let w = clamp(hipWidth * 1.25, 50, hipWidth*2.4);
+      h*=scale; w*=scale;
+      const x = hipsMid.x - w/2;
+      const y = hipsMid.y - h*0.12;
+      boxes.push({x,y,w,h});
+      if(els.faceOn.checked){
+        const nose = kp.find(k=>k.part==='nose' || k.name==='nose');
+        const lEye = kp.find(k=>k.part==='leftEye' || k.name==='left_eye');
+        const rEye = kp.find(k=>k.part==='rightEye' || k.name==='right_eye');
+        if(nose && lEye && rEye && nose.score>=thr){
+          const eyeDist = Math.hypot(lEye.x-rEye.x, lEye.y-rEye.y);
+          const size = Math.max(eyeDist*3.2, 48);
+          boxes.push({x:(lEye.x+rEye.x)/2 - size/2, y:(lEye.y+rEye.y)/2 - size/2, w:size, h:size*1.25});
+        }
+      }
+    }
+    return boxes;
+  }
+
+  function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi,v)); }
+
+  // Pixelate region in-place on the canvas
+  function mosaicRegion(ctx, rect, block){
+    const {x,y,w,h} = rect;
+    const bx = Math.max(0, Math.floor(x));
+    const by = Math.max(0, Math.floor(y));
+    const bw = Math.min(ctx.canvas.width - bx, Math.floor(w));
+    const bh = Math.min(ctx.canvas.height - by, Math.floor(h));
+    if(bw<=0 || bh<=0) return;
+    const off = document.createElement('canvas');
+    const offctx = off.getContext('2d');
+    const sx = Math.max(1, Math.floor(bw / block));
+    const sy = Math.max(1, Math.floor(bh / block));
+    off.width = sx; off.height = sy;
+    offctx.imageSmoothingEnabled = true;
+    offctx.drawImage(ctx.canvas, bx, by, bw, bh, 0, 0, sx, sy);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, sx, sy, bx, by, bw, bh);
+  }
+
+  async function processItem(it, idx, total){
+    try{
+      it.status='processing'; it.stat.textContent='detecting…';
+      it.i.style.width='10%';
+      // Run Human on the original image (for accurate keypoints)
+      const img = await loadImageFromFile(it.file);
+      const res = await human.detect(img);
+      const scale = Number(els.cov.value) / 100;
+
+      // Draw original to thumb canvas
+      const box = drawImageContain(it.ctx, img, it.canvas.width, it.canvas.height);
+
+      // Map model coords to canvas (since we resized)
+      const rx = (x)=> box.dx + (x * (box.dw / img.naturalWidth));
+      const ry = (y)=> box.dy + (y * (box.dh / img.naturalHeight));
+
+      const regions = regionsFromPose(res, scale).map(r=>({x:rx(r.x), y:ry(r.y), w:r.w*(box.dw/img.naturalWidth), h:r.h*(box.dh/img.naturalHeight)}));
+
+      if(!regions.length){ it.stat.classList.add('err'); it.stat.textContent='no pose'; it.i.style.width='100%'; return; }
+
+      for(const r of regions){ mosaicRegion(it.ctx, r, Number(els.block.value)); if(els.showBox.checked){ it.ctx.strokeStyle='rgba(72,193,255,.9)'; it.ctx.lineWidth=2; it.ctx.strokeRect(r.x,r.y,r.w,r.h); } }
+
+      it.stat.classList.add('ok'); it.stat.textContent='done'; it.i.style.width='100%';
+    }catch(e){ it.stat.classList.add('err'); it.stat.textContent='error'; console.error(e); }
+    finally{ els.count.textContent = `${Math.min(idx+1,total)}/${total}`; els.pbar.style.width = `${Math.round(((idx+1)/total)*100)}%`; }
+  }
+
+  async function runBatch(){
+    if(running) return; running = true;
+    els.pbar.style.width='0%'; els.count.textContent = `0/${items.length}`;
+    await human.load(); await human.warmup();
+
+    // Sequential to be kinder to memory/CPU; could do small concurrency if desired
+    for(let i=0;i<items.length;i++){
+      // Skip already processed
+      if(items[i].status==='done') continue;
+      // eslint-disable-next-line no-await-in-loop
+      await processItem(items[i], i, items.length);
+    }
+    running = false;
+  }
+
+  function resetBatch(){ items=[]; els.grid.innerHTML=''; els.pbar.style.width='0%'; els.count.textContent='0/0'; }
+
+  // File helpers
+  function handleFiles(fileList){
+    const arr = [...fileList].filter(f=>/^image\//.test(f.type));
+    if(arr.length===0){ toast('No images found.'); return; }
+    resetBatch();
+    arr.forEach(addThumb);
+    // Kick processing automatically
+    runBatch();
+  }
+
+  function loadImageFromFile(file){
+    return new Promise((resolve,reject)=>{ const url=URL.createObjectURL(file); const img=new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src=url; });
+  }
+
+  // ZIP download
+  async function downloadZip(){
+    if(items.length===0){ toast('Nothing to download.'); return; }
+    const zip = new JSZip();
+    let done=0; for(const it of items){ const blob = await new Promise(res=> it.canvas.toBlob(res,'image/png',1)); zip.file(`censored_${sanitize(it.file.name.replace(/\.[^.]+$/, ''))}.png`, blob); done++; }
+    const content = await zip.generateAsync({type:'blob'});
+    saveAs(content, 'pixiecensor_batch.zip');
+  }
+  function sanitize(s){ return s.replace(/[^a-z0-9_-]+/gi,'-').replace(/-+/g,'-').toLowerCase(); }
+
+  // Wire UI
+  els.files.addEventListener('change', (e)=> handleFiles(e.target.files));
+  els.drop.addEventListener('dragover', (e)=>{ e.preventDefault(); els.drop.classList.add('drag'); });
+  els.drop.addEventListener('dragleave', ()=> els.drop.classList.remove('drag'));
+  els.drop.addEventListener('drop', (e)=>{ e.preventDefault(); els.drop.classList.remove('drag'); handleFiles(e.dataTransfer.files); });
+  els.cov.addEventListener('input', ()=> els.covVal.textContent = `${els.cov.value}%`);
+  els.conf.addEventListener('input', ()=> els.confVal.textContent = Number(els.conf.value).toFixed(2));
+  els.zipAll.addEventListener('click', downloadZip);
+
+  // Accessibility: click to select
+  els.drop.addEventListener('click', ()=> els.files.click());
+
+  // Friendly warning on mobile with low RAM
+  if(navigator.deviceMemory && navigator.deviceMemory < 4){ toast('Low-memory device detected — try 5–10 images at a time.'); }
+
+  </script>
+</body>
+</html>
