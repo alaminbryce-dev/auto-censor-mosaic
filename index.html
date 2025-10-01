@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bulk Watermark — alaminbryce.com</title>
+  <meta name="description" content="Upload many images, apply a watermark, and download them — all in your browser." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' stroke='white' fill='black'/%3E%3C/svg%3E">
+  <link rel="preload" href="assets/watermark.png" as="image">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Caveat:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header glassy">
+    <div class="brand">
+      <span class="dot"></span>
+      <span class="brand-name">alaminbryce<span class="tld">.com</span></span>
+    </div>
+    <nav class="links">
+      <a class="pill patreon" href="https://www.patreon.com/AlaminBryce" target="_blank" rel="noopener">Patreon</a>
+      <a class="pill" href="https://www.instagram.com/" target="_blank" rel="noopener">Instagram</a>
+      <a class="pill" href="https://discord.gg/" target="_blank" rel="noopener">Discord</a>
+      <a class="pill" href="#" onclick="document.querySelector('#dropzone-images input').click();return false;">Upload</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-left">
+        <h1 class="title">Bulk Watermark</h1>
+        <p class="subtitle script">my art website ← (＞▽＜)ﾉ</p>
+        <p class="cta">High tiers get <strong>4 extra videos &amp; pics</strong> per post! <span class="price">($12 and higher)</span></p>
+        <div class="hero-actions">
+          <a class="pill patreon" href="https://www.patreon.com/AlaminBryce" target="_blank" rel="noopener">Support on Patreon</a>
+          <button class="pill primary" onclick="document.querySelector('#dropzone-images input').click()">Start Watermarking</button>
+        </div>
+      </div>
+      <div class="hero-right">
+        <img src="assets/watermark.png" alt="Default Watermark" class="hero-watermark">
+      </div>
+    </section>
+
+    <section class="panel grid">
+      <div class="card">
+        <h2>1) Upload images (bulk)</h2>
+        <label class="dropzone" id="dropzone-images">
+          <input id="input-images" type="file" accept="image/*" multiple />
+          <span>Drag & drop or click to choose…</span>
+        </label>
+        <div class="hint">Selected: <span id="count-images">0</span> file(s)</div>
+        <div id="gallery" class="gallery"></div>
+      </div>
+
+      <div class="card">
+        <h2>2) Watermark</h2>
+        <div class="watermark-inputs">
+          <label class="dropzone small">
+            <input id="input-watermark" type="file" accept="image/*" />
+            <span>Use your own watermark (optional)</span>
+          </label>
+          <div class="hint">Default watermark: <code>assets/watermark.png</code></div>
+        </div>
+
+        <div class="controls">
+          <div class="control">
+            <label>Size (% of image width)</label>
+            <input id="sizePct" type="range" min="5" max="60" value="20" />
+            <output id="sizePctOut">20%</output>
+          </div>
+
+          <div class="control">
+            <label>Opacity</label>
+            <input id="opacity" type="range" min="10" max="100" value="90" />
+            <output id="opacityOut">0.90</output>
+          </div>
+
+          <div class="control">
+            <label>Corner</label>
+            <select id="corner">
+              <option value="top-right" selected>Top right</option>
+              <option value="top-left">Top left</option>
+              <option value="bottom-right">Bottom right</option>
+              <option value="bottom-left">Bottom left</option>
+              <option value="center">Center</option>
+            </select>
+          </div>
+
+          <div class="control two">
+            <div>
+              <label>Offset X (px)</label>
+              <input id="offsetX" type="number" value="-20" />
+            </div>
+            <div>
+              <label>Offset Y (px)</label>
+              <input id="offsetY" type="number" value="20" />
+            </div>
+          </div>
+
+          <div class="control">
+            <label><input id="allowDrag" type="checkbox" /> Drag watermark on preview</label>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="applyAll" class="btn primary">Process All</button>
+          <button id="downloadAll" class="btn">Download All (ZIP)</button>
+          <a id="resetBtn" class="btn ghost" href="#">Reset</a>
+        </div>
+        <div class="hint faint">If ZIP is blocked by extensions, download each image from its card.</div>
+      </div>
+    </section>
+
+    <section id="output" class="panel">
+      <h2>3) Results</h2>
+      <div id="results" class="results"></div>
+    </section>
+
+    <footer class="site-footer">
+      <div>© <span class="brand-accent">alaminbryce.com</span> · Bulk watermark tool</div>
+    </footer>
+  </main>
+
+  <!-- External libs for optional ZIP bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
