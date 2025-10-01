@@ -49,7 +49,7 @@ function loadImageFromURL(url){
 
 async function initWatermark(){
   if (state.watermark) return;
-  state.watermark = await loadImageFromURL('assets/watermark.png');
+  state.watermark = await loadImageFromURL('watermark.png');
 }
 
 function readableSize(bytes){
